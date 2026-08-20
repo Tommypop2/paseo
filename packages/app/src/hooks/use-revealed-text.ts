@@ -1,51 +1,52 @@
 import { useEffect, useRef, useState } from "react";
 
-import { computeRevealStep } from "@/agent-stream/text-reveal";
+import {
+  advanceTextReveal,
+  beginTextReveal,
+  completeTextReveal,
+  isTextRevealSettled,
+  retargetTextReveal,
+  type TextRevealState,
+  visibleRevealedText,
+} from "@/agent-stream/text-reveal";
 import type { MarkdownPhase } from "@/components/markdown/fence/types";
 
 /**
- * Returns the prefix of `text` that should be painted right now.
+ * Binds the paced reveal in @/agent-stream/text-reveal to a frame clock.
  *
- * The first text this hook sees is revealed whole. Only growth is paced, which is
- * what makes every non-streaming path — history hydration, timeline replay, a
- * virtualized row remounting on scroll, a finished message — render complete on
- * first paint without a special case. Once `phase` leaves "streaming" the reveal
- * snaps, so a completed turn is never left with characters in hand.
- *
- * See @/agent-stream/text-reveal for why the rate is derived from the backlog.
+ * All of the policy — what is revealed when, and where it is safe to cut — lives
+ * in that module and is tested there. This hook only owns the requestAnimationFrame
+ * wiring, so the rendered behavior is covered end to end by
+ * `packages/app/e2e/browser/agent-stream-smoothness.spec.ts`.
  */
 export function useRevealedText(text: string, phase: MarkdownPhase): string {
-  const [revealedLength, setRevealedLength] = useState(text.length);
-  const revealedRef = useRef(text.length);
+  const stateRef = useRef<TextRevealState>(beginTextReveal(text));
+  const [, forceRender] = useState(0);
   const frameRef = useRef<number | null>(null);
   const lastFrameAtRef = useRef<number | null>(null);
 
-  // A shorter string means this slot is showing a different message than the one
-  // the reveal position belongs to. Clamp instead of slicing past the end.
-  if (revealedRef.current > text.length) {
-    revealedRef.current = text.length;
-  }
+  stateRef.current = retargetTextReveal(stateRef.current, text);
 
   useEffect(() => {
-    const snap = () => {
+    const settle = () => {
       lastFrameAtRef.current = null;
-      if (revealedRef.current === text.length) {
-        return;
+      const next = completeTextReveal(stateRef.current);
+      if (next !== stateRef.current) {
+        stateRef.current = next;
+        forceRender((tick) => tick + 1);
       }
-      revealedRef.current = text.length;
-      setRevealedLength(text.length);
     };
 
     if (phase !== "streaming") {
-      snap();
+      settle();
       return;
     }
-    if (revealedRef.current >= text.length) {
+    if (isTextRevealSettled(stateRef.current)) {
       lastFrameAtRef.current = null;
       return;
     }
     if (typeof requestAnimationFrame !== "function") {
-      snap();
+      settle();
       return;
     }
 
@@ -57,15 +58,12 @@ export function useRevealedText(text: string, phase: MarkdownPhase): string {
       // than burning this frame on nothing.
       const elapsedMs = previous === null ? 16 : timestamp - previous;
 
-      const step = computeRevealStep({
-        backlog: text.length - revealedRef.current,
-        elapsedMs,
-      });
-      if (step > 0) {
-        revealedRef.current = Math.min(text.length, revealedRef.current + step);
-        setRevealedLength(revealedRef.current);
+      const next = advanceTextReveal(stateRef.current, elapsedMs);
+      if (next !== stateRef.current) {
+        stateRef.current = next;
+        forceRender((count) => count + 1);
       }
-      if (revealedRef.current < text.length) {
+      if (!isTextRevealSettled(stateRef.current)) {
         frameRef.current = requestAnimationFrame(tick);
       }
     };
@@ -79,5 +77,5 @@ export function useRevealedText(text: string, phase: MarkdownPhase): string {
     };
   }, [text, phase]);
 
-  return revealedLength >= text.length ? text : text.slice(0, revealedLength);
+  return visibleRevealedText(stateRef.current);
 }

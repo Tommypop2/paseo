@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { computeRevealStep, TEXT_REVEAL_HORIZON_MS } from "./text-reveal";
+import {
+  advanceTextReveal,
+  beginTextReveal,
+  clampToSafeRevealBoundary,
+  completeTextReveal,
+  computeRevealStep,
+  isTextRevealSettled,
+  retargetTextReveal,
+  TEXT_REVEAL_HORIZON_MS,
+  visibleRevealedText,
+} from "./text-reveal";
 
 describe("computeRevealStep", () => {
   it("reveals nothing when there is no backlog", () => {
@@ -9,8 +19,7 @@ describe("computeRevealStep", () => {
   });
 
   it("drains the backlog over the horizon", () => {
-    const backlog = 300;
-    const step = computeRevealStep({ backlog, elapsedMs: TEXT_REVEAL_HORIZON_MS / 2 });
+    const step = computeRevealStep({ backlog: 300, elapsedMs: TEXT_REVEAL_HORIZON_MS / 2 });
     expect(step).toBe(150);
   });
 
@@ -73,5 +82,129 @@ describe("computeRevealStep", () => {
     // paint. Pacing keeps the largest single paint far below the largest arrival.
     expect(Math.max(...steps)).toBeLessThan(Math.max(...arrivals) / 2);
     expect(Math.min(...steps)).toBeGreaterThan(0);
+  });
+});
+
+describe("clampToSafeRevealBoundary", () => {
+  it("leaves boundaries in plain text alone", () => {
+    expect(clampToSafeRevealBoundary("hello world", 5)).toBe(5);
+  });
+
+  it("clamps the ends", () => {
+    expect(clampToSafeRevealBoundary("hello", -3)).toBe(0);
+    expect(clampToSafeRevealBoundary("hello", 99)).toBe(5);
+  });
+
+  it("never splits a surrogate pair", () => {
+    // "a😀b" — the emoji occupies indices 1 and 2.
+    const text = "a😀b";
+    expect(clampToSafeRevealBoundary(text, 2)).toBe(1);
+    expect(clampToSafeRevealBoundary(text, 3)).toBe(3);
+  });
+
+  it("does not strand a combining mark", () => {
+    // "e" + combining acute; cutting at 1 would show a bare "e" then reflow.
+    const text = `éx`;
+    expect(clampToSafeRevealBoundary(text, 1)).toBe(0);
+    expect(clampToSafeRevealBoundary(text, 2)).toBe(2);
+  });
+
+  it("does not split an emoji ZWJ sequence", () => {
+    // Family emoji: person ZWJ person ZWJ child.
+    const family = "\u{1F468}‍\u{1F469}‍\u{1F467}";
+    const text = `${family}!`;
+    for (let index = 1; index < family.length; index += 1) {
+      expect(clampToSafeRevealBoundary(text, index)).toBe(0);
+    }
+    expect(clampToSafeRevealBoundary(text, family.length)).toBe(family.length);
+  });
+
+  it("does not split a skin tone modifier from its base", () => {
+    const text = "\u{1F44D}\u{1F3FD} nice";
+    expect(clampToSafeRevealBoundary(text, 2)).toBe(0);
+    expect(clampToSafeRevealBoundary(text, 4)).toBe(4);
+  });
+
+  it("does not strand a variation selector", () => {
+    const text = "❤️ done";
+    expect(clampToSafeRevealBoundary(text, 1)).toBe(0);
+    expect(clampToSafeRevealBoundary(text, 2)).toBe(2);
+  });
+});
+
+describe("text reveal state", () => {
+  it("reveals the first text it sees in full", () => {
+    const state = beginTextReveal("already here");
+    expect(visibleRevealedText(state)).toBe("already here");
+    expect(isTextRevealSettled(state)).toBe(true);
+  });
+
+  it("paces growth instead of painting it whole", () => {
+    let state = beginTextReveal("a");
+    state = retargetTextReveal(state, `a${"b".repeat(300)}`);
+    expect(visibleRevealedText(state)).toBe("a");
+
+    state = advanceTextReveal(state, 16);
+    const shown = visibleRevealedText(state);
+    expect(shown.length).toBeGreaterThan(1);
+    expect(shown.length).toBeLessThan(301);
+  });
+
+  it("catches up to the full text across frames", () => {
+    const full = `a${"b".repeat(200)}`;
+    let state = retargetTextReveal(beginTextReveal("a"), full);
+    for (let frame = 0; frame < 60 && !isTextRevealSettled(state); frame += 1) {
+      state = advanceTextReveal(state, 16);
+    }
+    expect(isTextRevealSettled(state)).toBe(true);
+    expect(visibleRevealedText(state)).toBe(full);
+  });
+
+  it("releases everything when the turn completes", () => {
+    const full = `a${"b".repeat(500)}`;
+    let state = advanceTextReveal(retargetTextReveal(beginTextReveal("a"), full), 16);
+    expect(visibleRevealedText(state)).not.toBe(full);
+
+    state = completeTextReveal(state);
+    expect(visibleRevealedText(state)).toBe(full);
+  });
+
+  it("only ever paints a prefix of the real text", () => {
+    const full = "the quick brown fox jumps over the lazy dog";
+    let state = retargetTextReveal(beginTextReveal("the "), full);
+    for (let frame = 0; frame < 20; frame += 1) {
+      expect(full.startsWith(visibleRevealedText(state))).toBe(true);
+      state = advanceTextReveal(state, 16);
+    }
+  });
+
+  it("clamps when the slot switches to a shorter message", () => {
+    const state = retargetTextReveal(beginTextReveal("a long streaming message"), "short");
+    expect(visibleRevealedText(state)).toBe("short");
+  });
+
+  it("never paints a lone surrogate while streaming emoji", () => {
+    const full = `progress ${"\u{1F680}".repeat(40)} done`;
+    let state = retargetTextReveal(beginTextReveal("progress "), full);
+    for (let frame = 0; frame < 200 && !isTextRevealSettled(state); frame += 1) {
+      const shown = visibleRevealedText(state);
+      // A stranded surrogate would make the painted prefix un-decodable.
+      expect(shown).toBe(Array.from(shown).join(""));
+      expect(full.startsWith(shown)).toBe(true);
+      state = advanceTextReveal(state, 16);
+    }
+    expect(visibleRevealedText(completeTextReveal(state))).toBe(full);
+  });
+
+  it("a long cluster cannot stall the reveal", () => {
+    // The rendered boundary backs up over this cluster, but the counter does not,
+    // so the reveal still finishes.
+    const full = `x${"́".repeat(40)}y`;
+    let state = retargetTextReveal(beginTextReveal("x"), full);
+    for (let frame = 0; frame < 200 && !isTextRevealSettled(state); frame += 1) {
+      state = advanceTextReveal(state, 16);
+    }
+    expect(isTextRevealSettled(state)).toBe(true);
+    expect(visibleRevealedText(state)).toBe(full);
   });
 });
