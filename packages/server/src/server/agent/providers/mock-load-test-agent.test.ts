@@ -505,11 +505,13 @@ describe("MockLoadTestAgentClient", () => {
         .reduce((max, length) => Math.max(max, length), 0);
       expect(longestMessage).toBeGreaterThan(20);
 
-      // First message includes the cycle header.
-      expect(assistantMessages[0]).toMatchObject({
-        type: "assistant_message",
-        text: expect.stringContaining("## Cycle 1"),
-      });
+      // The cycle header is at the start of the stream. It can straddle the first
+      // two messages, because the coalescer flushes the leading token of a burst
+      // on its own before batching the rest.
+      const assistantText = assistantMessages
+        .map((item) => (item.type === "assistant_message" ? item.text : ""))
+        .join("");
+      expect(assistantText).toContain("## Cycle 1");
 
       // Tool calls land in expected order at least once.
       const runningTools = toolCalls
