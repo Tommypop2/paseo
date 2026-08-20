@@ -1425,7 +1425,9 @@ function ResolvedWorkspaceDesktopTabsRow({
       if (!workspaceKey) {
         return;
       }
-      openTabFocused(workspaceKey, target, { paneId });
+      // Picked from this pane's own menu, so the tab belongs here even if it is
+      // currently open somewhere else.
+      openTabFocused(workspaceKey, target, paneId ? { mode: "pane", paneId } : undefined);
     },
     [openTabFocused, paneId, workspaceKey],
   );

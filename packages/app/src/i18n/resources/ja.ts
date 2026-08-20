@@ -557,7 +557,6 @@ export const ja: TranslationResources = {
       loading: "読み込み中...",
       modified: "未保存の変更",
       loadingAgentTitle: "エージェントタイトルを読み込み中",
-      emptyPane: "このペインにタブがありません。",
       fallback: {
         newAgent: "新しいエージェント",
         setup: "セットアップ",
@@ -600,6 +599,7 @@ export const ja: TranslationResources = {
         newBrowser: "新しいブラウザ",
         maximizePane: "ペインを最大化",
         restorePane: "ペインを元に戻す",
+        closePane: "ペインを閉じる",
         exitFocusMode: "フォーカスモードを終了",
         splitRight: "右にペインを分割",
         splitDown: "下にペインを分割",
@@ -609,10 +609,10 @@ export const ja: TranslationResources = {
         terminalProfilesMenu: "ターミナルプロファイル",
         editTerminalProfiles: "プロファイルを編集…",
       },
-      explorer: {
-        open: "エクスプローラーを開く",
-        close: "エクスプローラーを閉じる",
-        toggle: "エクスプローラーを切り替え",
+      sidePanel: {
+        open: "サイドパネルを開く",
+        close: "サイドパネルを閉じる",
+        toggle: "サイドパネルを切り替え",
         changes: "変更",
         files: "ファイル",
       },
@@ -1936,6 +1936,11 @@ export const ja: TranslationResources = {
         description: "組み込みターミナルバッファに保持する行数",
         accessibilityLabel: "ターミナルスクロールバック行数",
       },
+      sidePanelRouting: {
+        label: "補助タブをサイドパネルで開く",
+        description:
+          "ファイルリンク、プルリクエスト、セットアップの進行状況が、フォーカス中のペインではなく作業の横に開きます",
+      },
       autoExpandReasoning: {
         label: "常に思考プロセスを展開",
         description: "デフォルトでAIのエージェント思考・推論ブロックを完全に展開して表示します",
@@ -2120,11 +2125,11 @@ export const ja: TranslationResources = {
         toggleCommandCenter: "コマンドセンターを切り替え",
         showKeyboardShortcuts: "キーボードショートカットを表示",
         toggleLeftSidebar: "左サイドバーを切り替え",
-        toggleRightSidebar: "右サイドバーを切り替え",
+        toggleRightSidebar: "サイドパネルを切り替え",
         toggleBothSidebars: "両方のサイドバーを切り替え",
         toggleSettings: "設定を切り替え",
         toggleFocusMode: "フォーカスモードを切り替え",
-        toggleExplorerPaneMaximization: "エクスプローラーペインの最大化を切り替え",
+        toggleExplorerPaneMaximization: "サイドパネルの最大化を切り替え",
         cycleTheme: "テーマを順に切り替え",
         focusMessageInput: "メッセージ入力にフォーカス",
         cycleAgentMode: "エージェントモードを順に切り替え",

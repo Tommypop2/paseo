@@ -69,7 +69,11 @@ import { useSessionStore } from "@/stores/session-store";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { usePanelStore } from "@/stores/panel-store";
-import { collectAllTabs, useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
+import {
+  collectAllTabs,
+  FOCUSED_PANE_PLACEMENT,
+  useWorkspaceLayoutStore,
+} from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { buildWorkspaceExplorerStateKey } from "@/hooks/use-file-explorer-actions";
 import { isWeb } from "@/constants/platform";
@@ -983,9 +987,7 @@ function useDiffTabNavigation({
   cwd: string;
   isMobile: boolean;
 }) {
-  const openWorkspaceTabInFocusedPane = useWorkspaceLayoutStore(
-    (state) => state.openTabInFocusedPane,
-  );
+  const openWorkspaceTabInFocusedPane = useWorkspaceLayoutStore((state) => state.openTabFocused);
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
   const persistenceKey = useMemo(
     () => buildWorkspaceTabPersistenceKey({ serverId, workspaceId: workspaceId ?? cwd }),
@@ -1006,10 +1008,14 @@ function useDiffTabNavigation({
       if (!persistenceKey || isMobile) {
         return;
       }
-      openWorkspaceTabInFocusedPane(persistenceKey, {
-        kind: "working_diff",
-        ...(path ? { focusPath: path, focusRequestId: Date.now() } : {}),
-      });
+      openWorkspaceTabInFocusedPane(
+        persistenceKey,
+        {
+          kind: "working_diff",
+          ...(path ? { focusPath: path, focusRequestId: Date.now() } : {}),
+        },
+        FOCUSED_PANE_PLACEMENT,
+      );
     },
     [isMobile, openWorkspaceTabInFocusedPane, persistenceKey],
   );
@@ -1026,7 +1032,11 @@ function useDiffTabNavigation({
   const openCommit = useCallback(
     (sha: string) => {
       if (persistenceKey) {
-        openWorkspaceTabInFocusedPane(persistenceKey, { kind: "commit_diff", sha });
+        openWorkspaceTabInFocusedPane(
+          persistenceKey,
+          { kind: "commit_diff", sha },
+          FOCUSED_PANE_PLACEMENT,
+        );
       }
     },
     [openWorkspaceTabInFocusedPane, persistenceKey],

@@ -99,9 +99,7 @@ export function CompactExplorerSidebarHost({ children, enabled }: CompactExplore
   const model = useActiveCompactExplorerSidebarModel(enabled);
   const openCompactFileExplorer = usePanelStore((state) => state.openCompactFileExplorer);
   const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
-  const openWorkspaceTabInFocusedPane = useWorkspaceLayoutStore(
-    (state) => state.openTabInFocusedPane,
-  );
+  const openWorkspaceTabInFocusedPane = useWorkspaceLayoutStore((state) => state.openTabFocused);
   const focusWorkspaceTab = useWorkspaceLayoutStore((state) => state.focusTab);
 
   const handleOpenExplorer = useCallback(() => {

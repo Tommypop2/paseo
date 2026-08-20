@@ -229,7 +229,7 @@ function ExplorerSidebarContent({
             <ExplorerTabButton
               tab="changes"
               active={resolvedTab === "changes"}
-              label={t("workspace.tabs.explorer.changes")}
+              label={t("workspace.tabs.sidePanel.changes")}
               onTabPress={onTabPress}
               testID="explorer-tab-changes"
             />
@@ -237,7 +237,7 @@ function ExplorerSidebarContent({
           <ExplorerTabButton
             tab="files"
             active={resolvedTab === "files"}
-            label={t("workspace.tabs.explorer.files")}
+            label={t("workspace.tabs.sidePanel.files")}
             onTabPress={onTabPress}
             testID="explorer-tab-files"
           />
@@ -267,7 +267,7 @@ function ExplorerSidebarContent({
             nativeID="explorer-close"
             accessible
             accessibilityRole="button"
-            accessibilityLabel={t("workspace.tabs.explorer.close")}
+            accessibilityLabel={t("workspace.tabs.sidePanel.close")}
             hitSlop={8}
           >
             {({ hovered, pressed }) => (

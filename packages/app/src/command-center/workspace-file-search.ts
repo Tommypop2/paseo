@@ -132,7 +132,7 @@ export function useWorkspaceFileSearch(input: { enabled: boolean; query: string 
         filePath: path,
         persistenceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
         showMobileAgent: usePanelStore.getState().showMobileAgent,
-        openWorkspaceTabInFocusedPane: useWorkspaceLayoutStore.getState().openTabInFocusedPane,
+        openWorkspaceTabInFocusedPane: useWorkspaceLayoutStore.getState().openTabFocused,
         focusWorkspaceTab: useWorkspaceLayoutStore.getState().focusTab,
       });
     },

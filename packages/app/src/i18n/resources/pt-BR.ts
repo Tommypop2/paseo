@@ -557,7 +557,6 @@ export const ptBR: TranslationResources = {
       loading: "Carregando...",
       modified: "Alterações não salvas",
       loadingAgentTitle: "Carregando título do agente",
-      emptyPane: "Nenhuma aba neste painel.",
       fallback: {
         newAgent: "Novo agente",
         setup: "Configuração",
@@ -599,6 +598,7 @@ export const ptBR: TranslationResources = {
         newBrowser: "Novo navegador",
         maximizePane: "Maximizar painel",
         restorePane: "Restaurar painel",
+        closePane: "Fechar painel",
         exitFocusMode: "Sair do modo de foco",
         splitRight: "Dividir painel à direita",
         splitDown: "Dividir painel abaixo",
@@ -608,10 +608,10 @@ export const ptBR: TranslationResources = {
         terminalProfilesMenu: "Perfis de terminal",
         editTerminalProfiles: "Editar perfis…",
       },
-      explorer: {
-        open: "Abrir explorador",
-        close: "Fechar explorador",
-        toggle: "Alternar explorador",
+      sidePanel: {
+        open: "Abrir painel lateral",
+        close: "Fechar painel lateral",
+        toggle: "Alternar painel lateral",
         changes: "Alterações",
         files: "Arquivos",
       },
@@ -1952,6 +1952,11 @@ export const ptBR: TranslationResources = {
         description: "Linhas mantidas no buffer do terminal integrado",
         accessibilityLabel: "Linhas do scrollback do terminal",
       },
+      sidePanelRouting: {
+        label: "Abrir abas de apoio no painel lateral",
+        description:
+          "Links de arquivo, pull requests e progresso da configuração abrem ao lado do seu trabalho em vez do painel em foco",
+      },
       autoExpandReasoning: {
         label: "Sempre expandir raciocínio",
         description:
@@ -2136,11 +2141,11 @@ export const ptBR: TranslationResources = {
         toggleCommandCenter: "Alternar central de comandos",
         showKeyboardShortcuts: "Mostrar atalhos de teclado",
         toggleLeftSidebar: "Alternar barra lateral esquerda",
-        toggleRightSidebar: "Alternar barra lateral direita",
+        toggleRightSidebar: "Alternar painel lateral",
         toggleBothSidebars: "Alternar ambas as barras laterais",
         toggleSettings: "Alternar Configurações",
         toggleFocusMode: "Alternar modo de foco",
-        toggleExplorerPaneMaximization: "Alternar maximização do painel Explorador",
+        toggleExplorerPaneMaximization: "Alternar maximização do painel lateral",
         cycleTheme: "Alternar tema",
         focusMessageInput: "Focar entrada de mensagem",
         cycleAgentMode: "Alternar modo do agente",
