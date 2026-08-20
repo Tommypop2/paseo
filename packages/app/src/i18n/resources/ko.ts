@@ -710,6 +710,10 @@ export const ko: TranslationResources = {
         stopFailed: "{{scriptName}}를 중지하지 못했습니다.",
       },
     },
+    tree: {
+      showFolderTree: "폴더 트리 표시",
+      hideFolderTree: "폴더 트리 숨기기",
+    },
     git: {
       actions: {
         moreOptions: "옵션 더 보기",
@@ -862,8 +866,6 @@ export const ko: TranslationResources = {
         split: "나란히 보기 diff",
         switchToUnified: "통합 diff로 전환",
         switchToSplit: "나란히 보기 diff로 전환",
-        showTreeView: "폴더 트리 표시",
-        hideTreeView: "폴더 트리 숨기기",
         options: "Diff 옵션",
         hideWhitespace: "공백 숨기기",
         showWhitespace: "공백 표시",

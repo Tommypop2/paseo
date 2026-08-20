@@ -710,6 +710,10 @@ export const ar: TranslationResources = {
         stopFailed: "فشل إيقاف{{scriptName}}",
       },
     },
+    tree: {
+      showFolderTree: "إظهار شجرة المجلدات",
+      hideFolderTree: "إخفاء شجرة المجلدات",
+    },
     git: {
       actions: {
         moreOptions: "المزيد من الخيارات",
@@ -855,8 +859,6 @@ export const ar: TranslationResources = {
         split: "فرق جنبًا إلى جنب",
         switchToUnified: "التبديل إلى الفرق الموحد",
         switchToSplit: "التبديل إلى الفرق جنبًا إلى جنب",
-        showTreeView: "إظهار شجرة المجلدات",
-        hideTreeView: "إخفاء شجرة المجلدات",
         options: "خيارات الفرق",
         hideWhitespace: "إخفاء المسافة البيضاء",
         showWhitespace: "إظهار المسافة البيضاء",

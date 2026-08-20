@@ -713,6 +713,10 @@ export const ptBR: TranslationResources = {
         stopFailed: "Falha ao parar {{scriptName}}",
       },
     },
+    tree: {
+      showFolderTree: "Mostrar árvore de pastas",
+      hideFolderTree: "Ocultar árvore de pastas",
+    },
     git: {
       actions: {
         moreOptions: "Mais opções",
@@ -877,8 +881,6 @@ export const ptBR: TranslationResources = {
         split: "Diff lado a lado",
         switchToUnified: "Alternar para diff unificado",
         switchToSplit: "Alternar para diff lado a lado",
-        showTreeView: "Mostrar árvore de pastas",
-        hideTreeView: "Ocultar árvore de pastas",
         options: "Opções do diff",
         hideWhitespace: "Ocultar espaços em branco",
         showWhitespace: "Mostrar espaços em branco",

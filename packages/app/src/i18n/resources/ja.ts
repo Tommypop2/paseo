@@ -712,6 +712,10 @@ export const ja: TranslationResources = {
         stopFailed: "{{scriptName}}の停止に失敗しました",
       },
     },
+    tree: {
+      showFolderTree: "フォルダツリーを表示",
+      hideFolderTree: "フォルダツリーを非表示",
+    },
     git: {
       actions: {
         moreOptions: "その他のオプション",
@@ -866,8 +870,6 @@ export const ja: TranslationResources = {
         split: "左右比較",
         switchToUnified: "ユニファイド差分に切り替え",
         switchToSplit: "左右比較差分に切り替え",
-        showTreeView: "フォルダツリーを表示",
-        hideTreeView: "フォルダツリーを非表示",
         options: "差分オプション",
         hideWhitespace: "空白を非表示",
         showWhitespace: "空白を表示",

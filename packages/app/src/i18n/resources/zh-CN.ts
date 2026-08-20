@@ -706,6 +706,10 @@ export const zhCN: TranslationResources = {
         stopFailed: "停止 {{scriptName}} 失败",
       },
     },
+    tree: {
+      showFolderTree: "显示文件夹树",
+      hideFolderTree: "隐藏文件夹树",
+    },
     git: {
       actions: {
         moreOptions: "更多选项",
@@ -847,8 +851,6 @@ export const zhCN: TranslationResources = {
         split: "Side-by-side diff",
         switchToUnified: "切换到统一差异视图",
         switchToSplit: "切换到并排差异视图",
-        showTreeView: "显示文件夹树",
-        hideTreeView: "隐藏文件夹树",
         options: "Diff 选项",
         hideWhitespace: "隐藏空白差异",
         showWhitespace: "显示空白差异",

@@ -715,6 +715,10 @@ export const ru: TranslationResources = {
         stopFailed: "Не удалось остановить{{scriptName}}",
       },
     },
+    tree: {
+      showFolderTree: "Показать дерево папок",
+      hideFolderTree: "Скрыть дерево папок",
+    },
     git: {
       actions: {
         moreOptions: "Больше возможностей",
@@ -877,8 +881,6 @@ export const ru: TranslationResources = {
         split: "Параллельная разница",
         switchToUnified: "Переключить на объединенный diff",
         switchToSplit: "Переключить на diff рядом",
-        showTreeView: "Показать дерево папок",
-        hideTreeView: "Скрыть дерево папок",
         options: "Параметры diff",
         hideWhitespace: "Скрыть пробелы",
         showWhitespace: "Показать пробелы",

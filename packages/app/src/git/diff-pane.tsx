@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { TreeRail } from "@/components/tree-rail";
+import { TreeRailToggle } from "@/components/tree-rail-toggle";
 import { DiffStat } from "@/components/diff-stat";
 import {
   View,
@@ -19,7 +20,6 @@ import {
   AlignJustify,
   ChevronDown,
   Columns2,
-  FolderTree,
   ListChevronsDownUp,
   ListChevronsUpDown,
   Maximize2,
@@ -176,7 +176,6 @@ const ThemedAlignJustify = withUnistyles(AlignJustify);
 const ThemedColumns2 = withUnistyles(Columns2);
 const ThemedPilcrow = withUnistyles(Pilcrow);
 const ThemedWrapText = withUnistyles(WrapText);
-const ThemedFolderTree = withUnistyles(FolderTree);
 const ThemedListChevronsDownUp = withUnistyles(ListChevronsDownUp);
 const ThemedListChevronsUpDown = withUnistyles(ListChevronsUpDown);
 const ThemedMaximize2 = withUnistyles(Maximize2);
@@ -316,39 +315,6 @@ export function DiffModeMenu({
   );
 }
 
-interface DesktopTreeToggleProps {
-  visible: boolean;
-  toggleStyle?: PressableStyleFn;
-  onToggle: () => void;
-}
-
-function DesktopTreeToggle({ visible, toggleStyle, onToggle }: DesktopTreeToggleProps) {
-  const { t } = useTranslation();
-  const defaultToggleStyle = useMemo(
-    () => buildToggleButtonStyle(visible, styles.toolbarIconButton),
-    [visible],
-  );
-  const label = t(visible ? "workspace.git.diff.hideTreeView" : "workspace.git.diff.showTreeView");
-  return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          testID="changes-toggle-tree"
-          style={toggleStyle ?? defaultToggleStyle}
-          onPress={onToggle}
-        >
-          <ThemedFolderTree size={14} uniProps={foregroundMutedIconColorMapping} />
-        </Pressable>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <Text style={styles.tooltipText}>{label}</Text>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 interface ChangesToolbarProps {
   branchName: string | null;
   allFilesCollapsed: boolean;
@@ -369,7 +335,6 @@ interface ChangesToolbarProps {
   refreshSupported: boolean;
   selectedDiffStat: { additions: number; deletions: number } | null;
   serverId: string;
-  treeToggleStyle: PressableStyleFn;
   workspaceId?: string | null;
   wrapLines: boolean;
   onRefresh: () => void;
@@ -400,7 +365,6 @@ function ChangesToolbar(props: ChangesToolbarProps) {
     isMobile,
     selectedDiffStat,
     serverId,
-    treeToggleStyle,
     workspaceId,
     onSelectBase,
     onSelectUncommitted,
@@ -433,9 +397,9 @@ function ChangesToolbar(props: ChangesToolbarProps) {
       </View>
       <View style={styles.changesToolbarControls}>
         {!isMobile && hasFiles ? (
-          <DesktopTreeToggle
+          <TreeRailToggle
             visible={desktopTreeVisible}
-            toggleStyle={treeToggleStyle}
+            testID="changes-toggle-tree"
             onToggle={onToggleDesktopTree}
           />
         ) : null}
@@ -1128,10 +1092,6 @@ export function ChangesSurface({
   }, [changesPreferences.layout, updateChangesPreferences]);
 
   const codeFontSize = appSettings.codeFontSize;
-  const treeToggleStyle = useMemo(
-    () => buildToggleButtonStyle(desktopTreeVisible, styles.toolbarIconButton),
-    [desktopTreeVisible],
-  );
 
   const overflowToggleStyle = useMemo(() => buildOverflowButtonStyle(), []);
 
@@ -1456,7 +1416,6 @@ export function ChangesSurface({
           refreshSupported={refreshSupported}
           selectedDiffStat={selectedDiffStat}
           serverId={serverId}
-          treeToggleStyle={treeToggleStyle}
           workspaceId={workspaceId}
           wrapLines={wrapLines}
           onCollapseAll={handleCollapseAllFiles}

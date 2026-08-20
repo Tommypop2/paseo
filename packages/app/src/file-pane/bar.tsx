@@ -6,6 +6,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { Theme } from "@/styles/theme";
 import { FileConflictAlert, type FileConflictAlertState } from "./conflict-alert";
 import type { FileEditorStatus } from "./editor/model";
+import { FileTreeToggle } from "./tree-toggle";
 
 const ThemedSpinner = withUnistyles(LoadingSpinner);
 const spinnerMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -106,6 +107,7 @@ export function FilePanelBar({
             options={previewModes}
           />
         ) : null}
+        <FileTreeToggle />
       </View>
       {conflict ? <FileConflictAlert state={conflict} /> : null}
     </View>

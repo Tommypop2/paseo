@@ -10,6 +10,7 @@ import { createMaterialFileIcon } from "@/components/material-file-icon";
 import { FileExplorerPane } from "@/components/file-explorer-pane";
 import { TreeRail } from "@/components/tree-rail";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { usePanelStore } from "@/stores/panel-store";
 
 const CENTERED_PADDED_STYLE = {
   flex: 1,
@@ -36,6 +37,7 @@ function FilePanel() {
   const { serverId, workspaceId, target, fileNavigationRevision, retargetCurrentTab } =
     usePaneContext();
   const isCompact = useIsCompactFormFactor();
+  const treeVisible = usePanelStore((state) => state.fileTreeVisible);
   const workspaceDirectory = useWorkspaceDirectory(serverId, workspaceId);
   const handleOpenFile = useCallback(
     (path: string) => retargetCurrentTab({ kind: "file", path }),
@@ -49,7 +51,9 @@ function FilePanel() {
       </View>
     );
   }
-  if (isCompact) {
+  // Branch around the whole rail rather than making the tree slot conditional —
+  // see the `TreeRail` children contract.
+  if (isCompact || !treeVisible) {
     return (
       <FilePane
         serverId={serverId}

@@ -716,6 +716,10 @@ export const fr: TranslationResources = {
         stopFailed: "Échec de l'arrêt de{{scriptName}}",
       },
     },
+    tree: {
+      showFolderTree: "Afficher l'arborescence des dossiers",
+      hideFolderTree: "Masquer l'arborescence des dossiers",
+    },
     git: {
       actions: {
         moreOptions: "Plus d'options",
@@ -885,8 +889,6 @@ export const fr: TranslationResources = {
         split: "Différent côte à côte",
         switchToUnified: "Passer au diff unifié",
         switchToSplit: "Passer au diff côte à côte",
-        showTreeView: "Afficher l'arborescence des dossiers",
-        hideTreeView: "Masquer l'arborescence des dossiers",
         options: "Options du diff",
         hideWhitespace: "Masquer les espaces",
         showWhitespace: "Afficher les espaces",

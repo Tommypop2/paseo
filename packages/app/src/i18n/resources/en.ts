@@ -706,6 +706,10 @@ export const en = {
         stopFailed: "Failed to stop {{scriptName}}",
       },
     },
+    tree: {
+      showFolderTree: "Show folder tree",
+      hideFolderTree: "Hide folder tree",
+    },
     git: {
       actions: {
         moreOptions: "More options",
@@ -864,8 +868,6 @@ export const en = {
         split: "Side-by-side diff",
         switchToUnified: "Switch to unified diff",
         switchToSplit: "Switch to side-by-side diff",
-        showTreeView: "Show folder tree",
-        hideTreeView: "Hide folder tree",
         options: "Diff options",
         hideWhitespace: "Hide whitespace",
         showWhitespace: "Show whitespace",

@@ -716,6 +716,10 @@ export const es: TranslationResources = {
         stopFailed: "No se pudo detener{{scriptName}}",
       },
     },
+    tree: {
+      showFolderTree: "Mostrar árbol de carpetas",
+      hideFolderTree: "Ocultar árbol de carpetas",
+    },
     git: {
       actions: {
         moreOptions: "Más opciones",
@@ -886,8 +890,6 @@ export const es: TranslationResources = {
         split: "Diferencia de lado a lado",
         switchToUnified: "Cambiar a diferencia unificada",
         switchToSplit: "Cambiar a diferencia lado a lado",
-        showTreeView: "Mostrar árbol de carpetas",
-        hideTreeView: "Ocultar árbol de carpetas",
         options: "Opciones de diferencia",
         hideWhitespace: "Ocultar espacios en blanco",
         showWhitespace: "Mostrar espacios en blanco",
