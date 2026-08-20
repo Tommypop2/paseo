@@ -140,17 +140,20 @@ export function useChatOutline({
     if (pendingJump === null) return;
     const target = loadedItems.find((item) => item.timelineCursor?.seq === pendingJump.seq);
     if (target) {
-      if (visibleItemIds?.has(target.id) !== false && !pendingJump.hasScrolled) {
-        viewportRef.current?.scrollToMessage?.(target.id);
-        setPendingJump((current) => {
-          if (current?.requestId !== pendingJump.requestId) return current;
-          return { ...current, hasScrolled: true };
-        });
+      if (pendingJump.hasScrolled) return;
+      if (visibleItemIds?.has(target.id) === false) {
+        revealLoadedItem?.(target.id);
+        return;
       }
+      viewportRef.current?.scrollToMessage?.(target.id);
+      setPendingJump((current) => {
+        if (current?.requestId !== pendingJump.requestId) return current;
+        return { ...current, hasScrolled: true };
+      });
       return;
     }
     if (pendingJump.fetchSettled) setPendingJump(null);
-  }, [loadedItems, pendingJump, viewportRef, visibleItemIds]);
+  }, [loadedItems, pendingJump, revealLoadedItem, viewportRef, visibleItemIds]);
 
   const jumpToPrompt = useCallback(
     (seq: number) => {
