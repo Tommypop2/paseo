@@ -32,7 +32,12 @@ export interface StreamSmoothnessReport {
 }
 
 /**
- * Record the painted length of the last assistant message once per frame.
+ * Record the total painted length of every assistant message once per frame.
+ *
+ * The total, not the last message: a real turn emits many assistant messages, so
+ * the last one keeps changing identity and its length is not monotonic. Sampling
+ * only the tail message reads those handovers as resets and reports almost no
+ * growth at all.
  *
  * Runs entirely in the page so the sampling clock is the same clock the reveal
  * runs on. Waits for the text to start moving first, so a slow model's
@@ -46,22 +51,20 @@ export async function sampleStreamFrames(
   return await page.evaluate(
     async ({ sampleWindowMs, startTimeoutMs: waitMs }) => {
       const readLength = () => {
-        const nodes = document.querySelectorAll('[data-testid="assistant-message"]');
-        const last = nodes[nodes.length - 1];
-        return last?.textContent?.length ?? 0;
+        let total = 0;
+        for (const node of document.querySelectorAll('[data-testid="assistant-message"]')) {
+          total += node.textContent?.length ?? 0;
+        }
+        return total;
       };
 
       const waitStart = performance.now();
-      let base = readLength();
+      const base = readLength();
       await new Promise<void>((resolve) => {
         const poll = () => {
-          const length = readLength();
-          if (length > base + 20 || performance.now() - waitStart > waitMs) {
+          if (readLength() > base + 20 || performance.now() - waitStart > waitMs) {
             resolve();
             return;
-          }
-          if (length < base) {
-            base = length;
           }
           requestAnimationFrame(poll);
         };
@@ -101,8 +104,9 @@ function round2(value: number): number {
 
 /**
  * Reduce frame samples to the report. Frames outside the streaming window are
- * dropped: a negative delta means the tail moved to a new assistant message
- * element, and trailing idle means the turn ended mid-sample.
+ * dropped: leading idle is time-to-first-token, and trailing idle means the turn
+ * ended mid-sample. A negative delta means the timeline dropped content (a
+ * rewind or a re-render from canonical history) rather than painted anything.
  */
 export function summarizeStreamSmoothness(
   samples: readonly StreamFrameSample[],

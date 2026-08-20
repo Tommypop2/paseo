@@ -38,13 +38,15 @@ So arrival sets a _target_ and the reveal rate is derived from the backlog inste
 - **Reproducing bursty arrival:** the `bursty-stream` model in `mock-load-test-agent.ts` emits uneven runs of tokens separated by idle gaps. Burst sizes come from a seeded generator, so a run repeats exactly.
 - **Rate policy in isolation:** `computeRevealStep` in `packages/app/src/agent-stream/text-reveal.ts` is pure; `text-reveal.test.ts` covers convergence and burst flattening without a renderer.
 
-Healthy numbers (2026-08, Expo web against a local dev daemon, `bursty-stream`, 6s samples). Setting `TEXT_REVEAL_HORIZON_MS` to 0 makes the reveal paint on arrival, which is how the baseline column was taken:
+Healthy numbers (2026-08, Expo web against a local dev daemon, real Claude Haiku agent, ~8.5s samples during active streaming). Setting `TEXT_REVEAL_HORIZON_MS` to 0 makes the reveal paint on arrival, which is how the baseline column was taken:
 
-|                                         | paint on arrival | paced     |
-| --------------------------------------- | ---------------- | --------- |
-| frames that advanced the text (of ~340) | 55               | 244–251   |
-| chars-per-frame CV                      | 2.66             | 1.44–1.53 |
-| gap between visible updates, p50        | 100ms            | 17ms      |
-| gap between visible updates, p95        | 117ms            | 33–50ms   |
+|                                  | paint on arrival | paced |
+| -------------------------------- | ---------------- | ----- |
+| frames that advanced the text    | 6%               | 87%   |
+| chars-per-frame CV               | 4.11             | 1.86  |
+| gap between visible updates, p50 | 317ms            | 17ms  |
+| gap between visible updates, p95 | 383ms            | 17ms  |
 
-Total characters painted is the same either way — the reveal moves when they land, not how many arrive. The largest single frame stays around 130–165 characters in both columns, because a new assistant message is revealed whole on first sight.
+Total characters painted is roughly the same either way — the reveal changes when they land, not how many arrive.
+
+Measure the **total** length across every `assistant-message` element, not the last one. A turn emits many assistant messages, so the tail element keeps changing identity and its length is not monotonic; sampling only the tail reads those handovers as resets and reports almost no growth. `sampleStreamFrames` does this correctly.
