@@ -44,6 +44,8 @@ const SIDE_PANEL_VIEW_TARGETS: Record<ExplorerTab, WorkspaceTabTarget> = {
 export interface SidePanelQuery {
   isCompact: boolean;
   workspaceKey: string | null;
+  /** Allows callers with known layout capabilities to avoid platform inference. */
+  supportsPaneSplits?: boolean;
 }
 
 export interface SidePanelInput extends SidePanelQuery {
@@ -56,8 +58,8 @@ function isSidePanelTabKind(kind: string): kind is SidePanelTabKind {
   return (SIDE_PANEL_TAB_KINDS as readonly string[]).includes(kind);
 }
 
-function canUseSidePanelPane(isCompact: boolean): boolean {
-  return !isCompact && supportsDesktopPaneSplits();
+function canUseSidePanelPane(input: SidePanelQuery): boolean {
+  return !input.isCompact && (input.supportsPaneSplits ?? supportsDesktopPaneSplits());
 }
 
 // ─── Side panel tabs (non-compact, no splits) ──────────────────────────────
@@ -105,7 +107,7 @@ export function openSupportingTab(input: OpenSupportingTabInput): string | null 
   const placement = resolveSidePanelPlacement({
     store,
     workspaceKey,
-    routeToSidePanel: input.openInSidePanelByDefault && canUseSidePanelPane(input.isCompact),
+    routeToSidePanel: input.openInSidePanelByDefault && canUseSidePanelPane(input),
     background,
   });
 
@@ -166,7 +168,7 @@ export function showSidePanel(input: SidePanelInput): void {
     }
     return;
   }
-  if (!input.workspaceKey || !canUseSidePanelPane(input.isCompact)) {
+  if (!input.workspaceKey || !canUseSidePanelPane(input)) {
     return;
   }
   useWorkspaceLayoutStore.getState().showSidePanel(input.workspaceKey);
@@ -183,7 +185,7 @@ export function hideSidePanel(input: SidePanelInput): void {
   }
 
   const store = useWorkspaceLayoutStore.getState();
-  if (!canUseSidePanelPane(input.isCompact)) {
+  if (!canUseSidePanelPane(input)) {
     const activeTabId = findActiveSidePanelTabId(store, input.workspaceKey);
     if (activeTabId) {
       store.closeTab(input.workspaceKey, activeTabId);
@@ -211,7 +213,7 @@ export function toggleSidePanel(input: SidePanelInput): void {
   }
 
   // Without splits there is no pane to reveal, so the toggle has to produce a tab.
-  if (!canUseSidePanelPane(input.isCompact)) {
+  if (!canUseSidePanelPane(input)) {
     useWorkspaceLayoutStore
       .getState()
       .openTabFocused(input.workspaceKey, SIDE_PANEL_VIEW_TARGETS.changes);
@@ -224,7 +226,7 @@ export function toggleSidePanel(input: SidePanelInput): void {
 export function useIsSidePanelOpen(input: SidePanelQuery): boolean {
   const compactOpen = usePanelStore(selectIsCompactFileExplorerOpen);
   const paneOpen = useWorkspaceLayoutStore((state) =>
-    input.isCompact ? false : isSidePanelOpenForLayout(state, input.workspaceKey),
+    input.isCompact ? false : isSidePanelOpenForLayout(state, input),
   );
   return input.isCompact ? compactOpen : paneOpen;
 }
@@ -234,14 +236,14 @@ export function isSidePanelOpen(input: SidePanelQuery): boolean {
   if (input.isCompact) {
     return selectIsCompactFileExplorerOpen(usePanelStore.getState());
   }
-  return isSidePanelOpenForLayout(useWorkspaceLayoutStore.getState(), input.workspaceKey);
+  return isSidePanelOpenForLayout(useWorkspaceLayoutStore.getState(), input);
 }
 
-function isSidePanelOpenForLayout(state: LayoutState, workspaceKey: string | null): boolean {
-  if (!workspaceKey) {
+function isSidePanelOpenForLayout(state: LayoutState, input: SidePanelQuery): boolean {
+  if (!input.workspaceKey) {
     return false;
   }
-  return supportsDesktopPaneSplits()
-    ? selectIsSidePanelVisible(state, workspaceKey)
-    : findActiveSidePanelTabId(state, workspaceKey) !== null;
+  return canUseSidePanelPane(input)
+    ? selectIsSidePanelVisible(state, input.workspaceKey)
+    : findActiveSidePanelTabId(state, input.workspaceKey) !== null;
 }

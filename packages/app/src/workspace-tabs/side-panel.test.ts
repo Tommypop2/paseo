@@ -15,12 +15,6 @@ vi.mock("@react-native-async-storage/async-storage", () => {
   };
 });
 
-const paneSplits = vi.hoisted(() => ({ supported: true }));
-vi.mock("@/constants/layout", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/constants/layout")>()),
-  supportsDesktopPaneSplits: () => paneSplits.supported,
-}));
-
 import { usePanelStore } from "@/stores/panel-store";
 import {
   collectAllPanes,
@@ -70,7 +64,6 @@ function paneIdHolding(tabId: string): string | undefined {
 }
 
 beforeEach(() => {
-  paneSplits.supported = true;
   useWorkspaceLayoutStore.setState({
     layoutByWorkspace: {},
     sidePanelPaneIdByWorkspace: {},
@@ -101,7 +94,12 @@ describe("compact surface", () => {
 });
 
 describe("non-compact with splits", () => {
-  const wide = { isCompact: false, workspaceKey: WORKSPACE_KEY, checkout: CHECKOUT };
+  const wide = {
+    isCompact: false,
+    supportsPaneSplits: true,
+    workspaceKey: WORKSPACE_KEY,
+    checkout: CHECKOUT,
+  };
 
   it("reveals an empty pane rather than seeding a view into it", () => {
     toggleSidePanel(wide);
@@ -140,6 +138,7 @@ describe("non-compact with splits", () => {
   it("routes a new supporting tab into the side panel", () => {
     const tabId = openSupportingTab({
       isCompact: false,
+      supportsPaneSplits: true,
       workspaceKey: WORKSPACE_KEY,
       target: { kind: "files" },
       openInSidePanelByDefault: true,
@@ -153,6 +152,7 @@ describe("non-compact with splits", () => {
   it("finds a supporting tab the user moved instead of dragging it back", () => {
     const tabId = openSupportingTab({
       isCompact: false,
+      supportsPaneSplits: true,
       workspaceKey: WORKSPACE_KEY,
       target: { kind: "files" },
       openInSidePanelByDefault: true,
@@ -161,6 +161,7 @@ describe("non-compact with splits", () => {
 
     const reopened = openSupportingTab({
       isCompact: false,
+      supportsPaneSplits: true,
       workspaceKey: WORKSPACE_KEY,
       target: { kind: "files" },
       openInSidePanelByDefault: true,
@@ -173,6 +174,7 @@ describe("non-compact with splits", () => {
   it("opens a new supporting tab in the focused pane when routing is off", () => {
     const tabId = openSupportingTab({
       isCompact: false,
+      supportsPaneSplits: true,
       workspaceKey: WORKSPACE_KEY,
       target: { kind: "files" },
       openInSidePanelByDefault: false,
@@ -185,6 +187,7 @@ describe("non-compact with splits", () => {
   it("adds a background supporting tab without revealing the panel", () => {
     const tabId = openSupportingTab({
       isCompact: false,
+      supportsPaneSplits: true,
       workspaceKey: WORKSPACE_KEY,
       target: { kind: "setup", workspaceId: "ws-main" },
       openInSidePanelByDefault: true,
@@ -205,11 +208,12 @@ describe("non-compact with splits", () => {
 });
 
 describe("non-compact without splits", () => {
-  const tablet = { isCompact: false, workspaceKey: WORKSPACE_KEY, checkout: CHECKOUT };
-
-  beforeEach(() => {
-    paneSplits.supported = false;
-  });
+  const tablet = {
+    isCompact: false,
+    supportsPaneSplits: false,
+    workspaceKey: WORKSPACE_KEY,
+    checkout: CHECKOUT,
+  };
 
   it("opens the side panel as a tab in the focused pane, never a second pane", () => {
     toggleSidePanel(tablet);
@@ -230,6 +234,7 @@ describe("non-compact without splits", () => {
   it("keeps supporting tabs in the focused pane so the tab row still lists them", () => {
     const tabId = openSupportingTab({
       isCompact: false,
+      supportsPaneSplits: false,
       workspaceKey: WORKSPACE_KEY,
       target: { kind: "files" },
       openInSidePanelByDefault: true,
