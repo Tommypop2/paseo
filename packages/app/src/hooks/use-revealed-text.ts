@@ -81,5 +81,7 @@ export function useRevealedText(text: string, phase: MarkdownPhase): string {
     };
   }, [text, pacingSupported, phase]);
 
-  return pacingSupported ? visibleRevealedText(stateRef.current) : text;
+  return pacingSupported
+    ? visibleRevealedText(stateRef.current, { streaming: phase === "streaming" })
+    : text;
 }

@@ -237,3 +237,41 @@ describe("text reveal state", () => {
     expect(visibleRevealedText(state)).toBe(full);
   });
 });
+
+describe("trailing fragments from arrival boundaries", () => {
+  it("holds back half a flag while more text is coming", () => {
+    // The daemon's coalescing window can end a delta mid-cluster, so a caught-up
+    // reveal can be handed a single regional indicator.
+    const halfFlag = "flags: \u{1F1EC}";
+    const state = beginTextReveal(halfFlag);
+    expect(visibleRevealedText(state, { streaming: true })).toBe("flags: ");
+    // Once the turn ends nothing more is coming, so paint what there is.
+    expect(visibleRevealedText(state, { streaming: false })).toBe(halfFlag);
+  });
+
+  it("paints the flag once its second half arrives", () => {
+    const whole = "flags: \u{1F1EC}\u{1F1E7}";
+    expect(visibleRevealedText(beginTextReveal(whole), { streaming: true })).toBe(whole);
+  });
+
+  it("keeps an even run of regional indicators intact", () => {
+    const twoFlags = "\u{1F1EC}\u{1F1E7}\u{1F1EB}\u{1F1F7}";
+    expect(visibleRevealedText(beginTextReveal(twoFlags), { streaming: true })).toBe(twoFlags);
+  });
+
+  it("holds back a dangling joiner", () => {
+    expect(
+      visibleRevealedText(beginTextReveal("family: \u{1F468}\u200D"), { streaming: true }),
+    ).toBe("family: \u{1F468}");
+  });
+
+  it("holds back a dangling high surrogate", () => {
+    const loneHigh = `broken: ${String.fromCharCode(0xd83d)}`;
+    expect(visibleRevealedText(beginTextReveal(loneHigh), { streaming: true })).toBe("broken: ");
+  });
+
+  it("leaves ordinary trailing text alone", () => {
+    const prose = "just some prose";
+    expect(visibleRevealedText(beginTextReveal(prose), { streaming: true })).toBe(prose);
+  });
+});

@@ -60,6 +60,8 @@ export function computeRevealStep(input: {
   return Math.min(backlog, Math.max(1, step));
 }
 
+const ZERO_WIDTH_JOINER = 0x200d;
+
 const graphemeSegmenter =
   typeof Intl.Segmenter === "function"
     ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
@@ -174,10 +176,65 @@ export function isTextRevealSettled(state: TextRevealState): boolean {
   return state.revealed >= state.target.length;
 }
 
-/** What should actually be painted this frame. */
-export function visibleRevealedText(state: TextRevealState): string {
+/**
+ * Hold back a trailing fragment that cannot stand on its own.
+ *
+ * The reveal boundary is not the only place a cluster gets cut. The daemon's
+ * coalescing window ends a delta wherever the window closes, so a caught-up
+ * reveal can be handed half a flag and paint it — measured on a mixed-script
+ * stream as frames ending in a single regional indicator. Only fragments that
+ * are certainly waiting on more input are withheld: a dangling high surrogate, a
+ * trailing joiner, or an odd regional indicator.
+ */
+function trimIncompleteTrailingCluster(text: string): string {
+  if (text.length === 0) {
+    return text;
+  }
+
+  const lastUnit = text.charCodeAt(text.length - 1);
+  if (lastUnit >= 0xd800 && lastUnit <= 0xdbff) {
+    return text.slice(0, -1);
+  }
+  if (lastUnit === ZERO_WIDTH_JOINER) {
+    return text.slice(0, -1);
+  }
+
+  const trailingRegionalIndicators = countTrailingRegionalIndicators(text);
+  if (trailingRegionalIndicators % 2 === 1) {
+    return text.slice(0, -2);
+  }
+
+  return text;
+}
+
+/** Number of regional indicators at the end of `text`. A flag is a pair. */
+function countTrailingRegionalIndicators(text: string): number {
+  let count = 0;
+  let cursor = text.length;
+  while (cursor >= 2) {
+    const codePoint = text.codePointAt(cursor - 2);
+    if (codePoint === undefined || codePoint < 0x1f1e6 || codePoint > 0x1f1ff) {
+      break;
+    }
+    count += 1;
+    cursor -= 2;
+  }
+  return count;
+}
+
+/**
+ * What should actually be painted this frame.
+ *
+ * `streaming` says whether more text is still expected. While it is, a trailing
+ * fragment waits for the rest of its cluster; once the turn ends everything
+ * received is painted, because nothing more is coming.
+ */
+export function visibleRevealedText(
+  state: TextRevealState,
+  options?: { streaming?: boolean },
+): string {
   if (state.revealed >= state.target.length) {
-    return state.target;
+    return options?.streaming ? trimIncompleteTrailingCluster(state.target) : state.target;
   }
   return state.target.slice(0, clampToSafeRevealBoundary(state.target, state.revealed));
 }
