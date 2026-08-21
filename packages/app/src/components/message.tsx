@@ -82,6 +82,7 @@ import { formatDuration, formatMessageTimestamp } from "@/utils/time";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
 import { getDefaultMarkdownClipboardEnvironment } from "@/utils/rich-clipboard-default-environment";
 import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-height-estimate";
+import { isRenderProfileEnabled } from "@/utils/render-profiler";
 import { getAgentAttachmentPillContent } from "@/attachments/attachment-pill-content";
 import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
@@ -1914,9 +1915,16 @@ export const AssistantMessage = memo(function AssistantMessage({
     ],
     [spacing],
   );
+  const revealDataSet = useMemo(
+    () =>
+      isRenderProfileEnabled()
+        ? { revealKey: occurrenceKey, revealLength: String(revealedMessage.length) }
+        : undefined,
+    [occurrenceKey, revealedMessage.length],
+  );
 
   return (
-    <View testID="assistant-message" style={assistantContainerStyle}>
+    <View testID="assistant-message" dataSet={revealDataSet} style={assistantContainerStyle}>
       {keyedBlocks.map(({ key, block }, index) => (
         <AssistantMessageBlockContainer
           key={key}

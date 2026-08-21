@@ -6,8 +6,10 @@ import {
   clampToSafeRevealBoundary,
   completeTextReveal,
   computeRevealStep,
+  nextTextRevealFrame,
   isTextRevealSettled,
   retargetTextReveal,
+  TEXT_REVEAL_FRAME_INTERVAL_MS,
   TEXT_REVEAL_HORIZON_MS,
   visibleRevealedText,
 } from "./text-reveal";
@@ -129,6 +131,33 @@ describe("clampToSafeRevealBoundary", () => {
     const text = "❤️ done";
     expect(clampToSafeRevealBoundary(text, 1)).toBe(0);
     expect(clampToSafeRevealBoundary(text, 2)).toBe(2);
+  });
+
+  it("does not split extended grapheme clusters", () => {
+    for (const { text, boundaries } of [
+      { text: "a🇺🇸b", boundaries: [0, 1, 5, 6] },
+      { text: "a가b", boundaries: [0, 1, 3, 4] },
+      { text: "aकःb", boundaries: [0, 1, 3, 4] },
+    ]) {
+      for (let index = 1; index < text.length; index += 1) {
+        const expected = boundaries.toReversed().find((boundary) => boundary <= index);
+        expect(clampToSafeRevealBoundary(text, index)).toBe(expected);
+      }
+    }
+  });
+});
+
+describe("nextTextRevealFrame", () => {
+  it("caps a high-refresh frame clock at 60Hz", () => {
+    expect(nextTextRevealFrame(null, 0)).toEqual({
+      elapsedMs: TEXT_REVEAL_FRAME_INTERVAL_MS,
+      frameAtMs: 0,
+    });
+    expect(nextTextRevealFrame(0, 8)).toBeNull();
+    expect(nextTextRevealFrame(0, 17)).toEqual({
+      elapsedMs: 17,
+      frameAtMs: expect.closeTo(TEXT_REVEAL_FRAME_INTERVAL_MS, 5),
+    });
   });
 });
 

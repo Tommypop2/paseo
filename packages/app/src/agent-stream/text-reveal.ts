@@ -20,6 +20,9 @@
 // pattern; longer adds lag the user can notice at the end of a turn.
 export const TEXT_REVEAL_HORIZON_MS = 150;
 
+/** Reveal at most once per 60Hz frame, even on high-refresh displays. */
+export const TEXT_REVEAL_FRAME_INTERVAL_MS = 1000 / 60;
+
 // A frame's elapsed time is clamped to this before it is used, so a long stall
 // (backgrounded tab, blocked main thread) doesn't produce a wild step from one
 // enormous delta.
@@ -57,54 +60,24 @@ export function computeRevealStep(input: {
   return Math.min(backlog, Math.max(1, step));
 }
 
-const ZERO_WIDTH_JOINER = 0x200d;
-
-function isHighSurrogate(code: number): boolean {
-  return code >= 0xd800 && code <= 0xdbff;
-}
-
-function isLowSurrogate(code: number): boolean {
-  return code >= 0xdc00 && code <= 0xdfff;
-}
+const graphemeSegmenter =
+  typeof Intl.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
 
 /**
- * Code points that attach to the character before them: combining marks,
- * variation selectors, the combining keycap, and emoji skin tone modifiers.
- * Cutting immediately before one of these strands it on its own.
+ * Pacing needs a conformant grapheme segmenter. Older runtimes paint each
+ * arrival whole instead of risking a transient broken glyph.
  */
-function isExtendingCodePoint(codePoint: number): boolean {
-  return (
-    (codePoint >= 0x0300 && codePoint <= 0x036f) ||
-    (codePoint >= 0x1ab0 && codePoint <= 0x1aff) ||
-    (codePoint >= 0x20d0 && codePoint <= 0x20f0) ||
-    (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
-    (codePoint >= 0x1f3fb && codePoint <= 0x1f3ff) ||
-    codePoint === ZERO_WIDTH_JOINER
-  );
-}
-
-function codePointBefore(text: string, index: number): number | undefined {
-  if (index <= 0) {
-    return undefined;
-  }
-  const low = text.charCodeAt(index - 1);
-  if (isLowSurrogate(low) && index >= 2 && isHighSurrogate(text.charCodeAt(index - 2))) {
-    return text.codePointAt(index - 2);
-  }
-  return low;
-}
-
-function codePointWidth(codePoint: number): number {
-  return codePoint > 0xffff ? 2 : 1;
+export function isTextRevealPacingSupported(): boolean {
+  return graphemeSegmenter !== null;
 }
 
 /**
  * Pull a cut index back to somewhere it is safe to slice.
  *
- * A raw `slice` at an arbitrary index can strand a lone surrogate, which renders
- * as a replacement glyph, or split an emoji ZWJ sequence so a family briefly
- * appears as its individual members. Both are visible for a frame or two while
- * streaming, which is exactly the flicker the paced reveal is supposed to remove.
+ * A raw `slice` at an arbitrary index can split a grapheme cluster, which makes
+ * one visible glyph briefly render as separate parts while the text is streaming.
  *
  * This only moves the *rendered* boundary. The reveal counter stays monotonic, so
  * a long cluster can never stall the reveal — the next frame steps past it.
@@ -117,30 +90,32 @@ export function clampToSafeRevealBoundary(text: string, index: number): number {
     return text.length;
   }
 
-  let cut = index;
+  const segment = graphemeSegmenter?.segment(text).containing(index);
+  return segment?.index ?? 0;
+}
 
-  // Never leave half of a surrogate pair behind.
-  if (isLowSurrogate(text.charCodeAt(cut)) && isHighSurrogate(text.charCodeAt(cut - 1))) {
-    cut -= 1;
+export interface TextRevealFrame {
+  elapsedMs: number;
+  frameAtMs: number;
+}
+
+/**
+ * Keep reveal commits at 60Hz while carrying timing remainder forward so a
+ * high-refresh display does not make the reveal render at hardware frame rate.
+ */
+export function nextTextRevealFrame(
+  previousFrameAtMs: number | null,
+  timestampMs: number,
+): TextRevealFrame | null {
+  const elapsedMs =
+    previousFrameAtMs === null ? TEXT_REVEAL_FRAME_INTERVAL_MS : timestampMs - previousFrameAtMs;
+  if (elapsedMs < TEXT_REVEAL_FRAME_INTERVAL_MS) {
+    return null;
   }
-
-  // Back over anything that binds to the character on its left. Bounded so a
-  // pathological run of combining marks can't spin.
-  for (let guard = 0; guard < 64 && cut > 0; guard += 1) {
-    const next = text.codePointAt(cut);
-    const previous = codePointBefore(text, cut);
-    if (previous === undefined) {
-      break;
-    }
-    const cutsIntoCluster =
-      (next !== undefined && isExtendingCodePoint(next)) || previous === ZERO_WIDTH_JOINER;
-    if (!cutsIntoCluster) {
-      break;
-    }
-    cut -= codePointWidth(previous);
-  }
-
-  return Math.max(0, cut);
+  return {
+    elapsedMs,
+    frameAtMs: timestampMs - (elapsedMs % TEXT_REVEAL_FRAME_INTERVAL_MS),
+  };
 }
 
 export interface TextRevealState {

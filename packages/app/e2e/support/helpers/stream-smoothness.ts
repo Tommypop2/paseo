@@ -15,7 +15,8 @@ import type { Page } from "@playwright/test";
 
 export interface StreamFrameSample {
   timestampMs: number;
-  length: number;
+  growthChars: number;
+  firstPaintChars: number;
 }
 
 export interface StreamSmoothnessReport {
@@ -26,18 +27,25 @@ export interface StreamSmoothnessReport {
   meanCharsPerFrame: number;
   maxCharsInOneFrame: number;
   charsPerFrameCv: number;
+  firstPaintFrames: number;
+  firstPaintChars: number;
+  maxFirstPaintCharsInOneFrame: number;
+  handoverGrowthFrames: number;
+  handoverGrowthChars: number;
+  maxHandoverGrowthCharsInOneFrame: number;
   updateGapP50Ms: number;
   updateGapP95Ms: number;
   updateGapMaxMs: number;
 }
 
 /**
- * Record the total painted length of every assistant message once per frame.
+ * Record text growth on every mounted assistant message once per frame.
  *
- * The total, not the last message: a real turn emits many assistant messages, so
- * the last one keeps changing identity and its length is not monotonic. Sampling
- * only the tail message reads those handovers as resets and reports almost no
- * growth at all.
+ * Message occurrence identity separates paced growth from first paint. Completed markdown
+ * blocks move into canonical timeline rows while a turn streams, remounting text
+ * that was already visible. Counting the new node's full length as growth would
+ * report that handover as a large reveal even though no text appeared on screen.
+ * First paints stay in the report as a separate diagnostic.
  *
  * Runs entirely in the page so the sampling clock is the same clock the reveal
  * runs on. Waits for the text to start moving first, so a slow model's
@@ -71,11 +79,47 @@ export async function sampleStreamFrames(
         requestAnimationFrame(poll);
       });
 
-      const samples: Array<{ timestampMs: number; length: number }> = [];
+      let previousLengths = new Map<string, number>();
+      for (const node of document.querySelectorAll('[data-testid="assistant-message"]')) {
+        const key = node.getAttribute("data-reveal-key");
+        const length = Number(node.getAttribute("data-reveal-length"));
+        if (key !== null && Number.isFinite(length)) {
+          previousLengths.set(key, length);
+        }
+      }
+
+      const samples: Array<{
+        timestampMs: number;
+        growthChars: number;
+        firstPaintChars: number;
+      }> = [];
       await new Promise<void>((resolve) => {
         const start = performance.now();
         const tick = (now: number) => {
-          samples.push({ timestampMs: now, length: readLength() });
+          const currentLengths = new Map<string, number>();
+          let growthChars = 0;
+          let firstPaintChars = 0;
+          for (const node of document.querySelectorAll('[data-testid="assistant-message"]')) {
+            const key = node.getAttribute("data-reveal-key");
+            const currentLength = Number(node.getAttribute("data-reveal-length"));
+            if (key === null || !Number.isFinite(currentLength)) {
+              continue;
+            }
+            const previousLength = previousLengths.get(key);
+            if (previousLength === undefined || currentLength < previousLength) {
+              firstPaintChars += currentLength;
+            } else {
+              const nodeGrowth = currentLength - previousLength;
+              growthChars += nodeGrowth;
+            }
+            currentLengths.set(key, currentLength);
+          }
+          samples.push({
+            timestampMs: now,
+            growthChars,
+            firstPaintChars,
+          });
+          previousLengths = currentLengths;
           if (now - start >= sampleWindowMs) {
             resolve();
             return;
@@ -105,8 +149,9 @@ function round2(value: number): number {
 /**
  * Reduce frame samples to the report. Frames outside the streaming window are
  * dropped: leading idle is time-to-first-token, and trailing idle means the turn
- * ended mid-sample. A negative delta means the timeline dropped content (a
- * rewind or a re-render from canonical history) rather than painted anything.
+ * ended mid-sample. First-paint frames are structural handovers. Existing blocks
+ * may also snap complete on those frames, so their growth is reported separately
+ * from the paced-growth CV.
  */
 export function summarizeStreamSmoothness(
   samples: readonly StreamFrameSample[],
@@ -117,15 +162,18 @@ export function summarizeStreamSmoothness(
   let lastUpdateAtMs: number | null = null;
   let firstGrowth = -1;
   let lastGrowth = -1;
+  const handoverGrowths: number[] = [];
 
-  for (let index = 1; index < samples.length; index += 1) {
-    const delta = samples[index].length - samples[index - 1].length;
-    if (delta < 0) {
-      lastUpdateAtMs = samples[index].timestampMs;
-      continue;
+  for (let index = 0; index < samples.length; index += 1) {
+    const sample = samples[index];
+    const isHandover = sample.firstPaintChars > 0;
+    const growth = isHandover ? 0 : sample.growthChars;
+    if (isHandover && sample.growthChars > 0) {
+      handoverGrowths.push(sample.growthChars);
+      lastUpdateAtMs = sample.timestampMs;
     }
-    deltas.push(delta);
-    if (delta > 0) {
+    deltas.push(growth);
+    if (growth > 0) {
       if (firstGrowth === -1) {
         firstGrowth = deltas.length - 1;
       }
@@ -144,6 +192,7 @@ export function summarizeStreamSmoothness(
     active.length > 0
       ? active.reduce((sum, delta) => sum + (delta - mean) ** 2, 0) / active.length
       : 0;
+  const firstPaints = samples.map((sample) => sample.firstPaintChars).filter((chars) => chars > 0);
 
   return {
     sampleWindowMs,
@@ -153,6 +202,12 @@ export function summarizeStreamSmoothness(
     meanCharsPerFrame: round2(mean),
     maxCharsInOneFrame: active.length > 0 ? Math.max(...active) : 0,
     charsPerFrameCv: mean === 0 ? Number.POSITIVE_INFINITY : round2(Math.sqrt(variance) / mean),
+    firstPaintFrames: firstPaints.length,
+    firstPaintChars: firstPaints.reduce((sum, chars) => sum + chars, 0),
+    maxFirstPaintCharsInOneFrame: firstPaints.length > 0 ? Math.max(...firstPaints) : 0,
+    handoverGrowthFrames: handoverGrowths.length,
+    handoverGrowthChars: handoverGrowths.reduce((sum, chars) => sum + chars, 0),
+    maxHandoverGrowthCharsInOneFrame: handoverGrowths.length > 0 ? Math.max(...handoverGrowths) : 0,
     updateGapP50Ms: round2(computePercentile(gapsMs, 50)),
     updateGapP95Ms: round2(computePercentile(gapsMs, 95)),
     updateGapMaxMs: gapsMs.length > 0 ? round2(Math.max(...gapsMs)) : 0,

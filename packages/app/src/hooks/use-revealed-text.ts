@@ -4,7 +4,9 @@ import {
   advanceTextReveal,
   beginTextReveal,
   completeTextReveal,
+  isTextRevealPacingSupported,
   isTextRevealSettled,
+  nextTextRevealFrame,
   retargetTextReveal,
   type TextRevealState,
   visibleRevealedText,
@@ -20,6 +22,7 @@ import type { MarkdownPhase } from "@/components/markdown/fence/types";
  * `packages/app/e2e/browser/agent-stream-smoothness.spec.ts`.
  */
 export function useRevealedText(text: string, phase: MarkdownPhase): string {
+  const pacingSupported = isTextRevealPacingSupported();
   const stateRef = useRef<TextRevealState>(beginTextReveal(text));
   const [, forceRender] = useState(0);
   const frameRef = useRef<number | null>(null);
@@ -37,7 +40,7 @@ export function useRevealedText(text: string, phase: MarkdownPhase): string {
       }
     };
 
-    if (phase !== "streaming") {
+    if (!pacingSupported || phase !== "streaming") {
       settle();
       return;
     }
@@ -52,13 +55,14 @@ export function useRevealedText(text: string, phase: MarkdownPhase): string {
 
     const tick = (timestamp: number) => {
       frameRef.current = null;
-      const previous = lastFrameAtRef.current;
-      lastFrameAtRef.current = timestamp;
-      // No previous frame to measure against yet: assume one frame at 60Hz rather
-      // than burning this frame on nothing.
-      const elapsedMs = previous === null ? 16 : timestamp - previous;
+      const frame = nextTextRevealFrame(lastFrameAtRef.current, timestamp);
+      if (!frame) {
+        frameRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      lastFrameAtRef.current = frame.frameAtMs;
 
-      const next = advanceTextReveal(stateRef.current, elapsedMs);
+      const next = advanceTextReveal(stateRef.current, frame.elapsedMs);
       if (next !== stateRef.current) {
         stateRef.current = next;
         forceRender((count) => count + 1);
@@ -75,7 +79,7 @@ export function useRevealedText(text: string, phase: MarkdownPhase): string {
         frameRef.current = null;
       }
     };
-  }, [text, phase]);
+  }, [text, pacingSupported, phase]);
 
-  return visibleRevealedText(stateRef.current);
+  return pacingSupported ? visibleRevealedText(stateRef.current) : text;
 }

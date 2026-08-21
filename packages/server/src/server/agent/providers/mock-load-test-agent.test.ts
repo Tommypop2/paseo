@@ -424,6 +424,31 @@ describe("MockLoadTestAgentClient", () => {
     unsubscribe();
   });
 
+  test("uses one continuous assistant stream for bursty rendering measurements", async () => {
+    vi.useFakeTimers();
+    const client = new MockLoadTestAgentClient();
+    const session = await client.createSession({
+      provider: "mock",
+      cwd: process.cwd(),
+      model: "bursty-stream",
+    });
+    const events: AgentStreamEvent[] = [];
+    const unsubscribe = session.subscribe((event) => events.push(event));
+
+    await session.startTurn("Measure paced rendering.");
+    await vi.advanceTimersByTimeAsync(0);
+
+    const timelineItems = events.flatMap((event) =>
+      event.type === "timeline" ? [event.item] : [],
+    );
+    expect(timelineItems.filter((item) => item.type === "assistant_message")).not.toHaveLength(0);
+    expect(
+      timelineItems.filter((item) => item.type === "reasoning" || item.type === "tool_call"),
+    ).toEqual([]);
+    await session.interrupt();
+    unsubscribe();
+  });
+
   test("emits a settled assistant Markdown image path selected by prompt", async () => {
     vi.useFakeTimers();
     const client = new MockLoadTestAgentClient();

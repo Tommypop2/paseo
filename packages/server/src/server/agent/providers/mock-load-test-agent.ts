@@ -615,6 +615,12 @@ function buildCycleQueue(turnId: string, cycle: number): CycleEvent[] {
   return queue;
 }
 
+function buildBurstyStreamQueue(cycle: number): CycleEvent[] {
+  return tokenize(
+    [buildIntroParagraph(cycle), buildMidParagraph(), buildClosingParagraph()].join("\n\n"),
+  ).map((text) => ({ kind: "assistant_token", text }));
+}
+
 function createToolCall(input: {
   callId: string;
   name: string;
@@ -1473,7 +1479,9 @@ export class MockLoadTestAgentSession implements AgentSession {
     for (let emitted = 0; emitted < eventsThisTick; emitted += 1) {
       if (turn.queue.length === 0) {
         turn.cycle += 1;
-        turn.queue = buildCycleQueue(turn.turnId, turn.cycle);
+        turn.queue = turn.burst
+          ? buildBurstyStreamQueue(turn.cycle)
+          : buildCycleQueue(turn.turnId, turn.cycle);
       }
       const event = turn.queue.shift();
       if (!event) {
