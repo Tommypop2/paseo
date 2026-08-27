@@ -15,6 +15,7 @@ import type { ScheduleService } from "./schedule/service.js";
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
+  type HostBattery,
   type ServerInfoStatusPayload,
   type SessionOutboundMessage,
   type WorkspaceSetupSnapshot,
@@ -27,6 +28,7 @@ import {
   wrapSessionMessage,
 } from "./messages.js";
 import { asUint8Array, decodeBinaryFrame } from "@getpaseo/protocol/binary-frames/index";
+import { HostBatterySampler } from "./session/daemon/host-battery-sampler.js";
 import type { TerminalActivity } from "@getpaseo/protocol/terminal-activity";
 import type { HostnamesConfig } from "./hostnames.js";
 import { isHostnameAllowed } from "./hostnames.js";
@@ -601,6 +603,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly browserToolsRegistrations = new Map<string, BrowserToolsRegistration>();
   private connectionLifecycle: "starting" | "accepting" | "stopping" = "accepting";
   private readonly advertiseDaemonStatusRpc: boolean;
+  private readonly hostBatterySampler: HostBatterySampler;
   private readonly advertiseRelayConfig: boolean;
   private readonly directorySync = new DirectorySyncService();
   private readonly pluginRuntime: SessionOptions["pluginRuntime"];
@@ -656,6 +659,12 @@ export class VoiceAssistantWebSocketServer {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
     this.advertiseDaemonStatusRpc = wsConfig.daemonStatusRpc !== false;
+    this.hostBatterySampler = new HostBatterySampler({
+      onChange: (battery) => this.broadcastHostBattery(battery),
+      // Probing a machine nobody is watching wakes a disk or a WMI query for nothing. New
+      // clients are seeded from `server_info`, so a resumed sampler has nothing to catch up on.
+      hasClients: () => this.sessions.size > 0,
+    });
     this.advertiseRelayConfig = wsConfig.relayConfig !== false;
     this.connectionLifecycle = wsConfig.startPaused === true ? "starting" : "accepting";
     this.serverId = serverId;
@@ -744,6 +753,7 @@ export class VoiceAssistantWebSocketServer {
     this.wss = this.createWebSocketServer(server, wsConfig, auth);
     this.startRuntimeMetricsInterval();
     this.startApplicationSocketLeaseInterval();
+    this.hostBatterySampler.start();
 
     this.logger.info("WebSocket server initialized on /ws");
   }
@@ -1030,6 +1040,7 @@ export class VoiceAssistantWebSocketServer {
       socket: ws,
     };
     this.sessions.set(ws, connection);
+    this.sampleHostBatteryForNewClient();
     this.bindSocketHandlers(ws);
     connectionLogger.info("Hub session attached");
   }
@@ -1052,6 +1063,7 @@ export class VoiceAssistantWebSocketServer {
     this.unsubscribeDaemonConfigChange = null;
     this.unsubscribeTerminalActivity?.();
     this.unsubscribeTerminalActivity = null;
+    this.hostBatterySampler.stop();
     if (this.runtimeMetricsInterval) {
       clearInterval(this.runtimeMetricsInterval);
       this.runtimeMetricsInterval = null;
@@ -1576,6 +1588,7 @@ export class VoiceAssistantWebSocketServer {
       lifecycle: pluginId ? { kind: "ephemeral-plugin", pluginId } : { kind: "reconnectable" },
     });
     this.sessions.set(ws, connection);
+    this.sampleHostBatteryForNewClient();
     if (connection.lifecycle === "reconnectable") {
       this.externalSessionsByKey.set(clientId, connection);
     }
@@ -1623,6 +1636,7 @@ export class VoiceAssistantWebSocketServer {
     }
     existing.sockets.add(ws);
     this.sessions.set(ws, existing);
+    this.sampleHostBatteryForNewClient();
     pending.identity.sessionId = existing.session.getSessionId();
     this.syncBrowserToolsClientRegistration(existing);
     this.sendToClient(ws, this.createServerInfoMessage());
@@ -1637,6 +1651,7 @@ export class VoiceAssistantWebSocketServer {
   }
 
   private buildServerInfoStatusPayload(): ServerInfoStatusPayload {
+    const hostBattery = this.hostBatterySampler.getCurrent();
     return {
       status: "server_info",
       serverId: this.serverId,
@@ -1645,6 +1660,10 @@ export class VoiceAssistantWebSocketServer {
       // COMPAT(desktopManaged): added in v0.1.X, remove optional parsing after 2027-01-16.
       desktopManaged: this.daemonRuntimeConfig?.desktopManaged === true,
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
+      // COMPAT(hostBattery): added in v0.5.1, remove optional parsing after 2027-09-01.
+      // Absent until the first probe lands, so an unmeasured host is never mistaken for one
+      // that has no battery.
+      ...(hostBattery === undefined ? {} : { hostBattery }),
       features: {
         // COMPAT(directorySync): added in v0.3.x, remove gate after 2027-02-12.
         directorySync: true,
@@ -1775,6 +1794,8 @@ export class VoiceAssistantWebSocketServer {
         agentProfiles: true,
         // COMPAT(agentConfigApply): added in v0.3.2, remove gate after 2027-02-11.
         agentConfigApply: true,
+        // COMPAT(hostBattery): added in v0.5.1, remove gate after 2027-09-01.
+        hostBattery: true,
       },
     };
   }
@@ -1801,6 +1822,21 @@ export class VoiceAssistantWebSocketServer {
 
   private broadcastCapabilitiesUpdate(): void {
     this.broadcast(this.createServerInfoMessage());
+  }
+
+  /**
+   * A client that just connected wants a charge now, not on the next minute boundary. The
+   * sampler was idle while nobody was listening, so the first connection has to kick it; the
+   * probe dedupes concurrent callers, so a burst of reconnects still costs one reading.
+   */
+  private sampleHostBatteryForNewClient(): void {
+    void this.hostBatterySampler.sampleNow();
+  }
+
+  private broadcastHostBattery(battery: HostBattery | null): void {
+    this.broadcast(
+      wrapSessionMessage({ type: "status", payload: { status: "host_battery", battery } }),
+    );
   }
 
   private broadcastDaemonConfigChanged(config: MutableDaemonConfig): void {
